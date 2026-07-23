@@ -161,14 +161,25 @@
       cursor: pointer;
       user-select: none;
       -webkit-tap-highlight-color: transparent;
-      transition: background-color 0.1s ease;
+      transition: all 0.2s ease;
       display: flex;
       flex-direction: column;
       gap: 3px;
     }
 
     .day-cell:active {
-      background-color: #E2E8F0 !important;
+      transform: scale(0.96);
+    }
+
+    /* 🔴 當有人唔得閒時，整格日期變淡紅色背景 */
+    .day-cell.has-busy {
+      background-color: #FFF5F5 !important;
+      border-color: #FEB2B2 !important;
+    }
+
+    .day-cell.has-busy .day-number {
+      color: #E53E3E !important;
+      font-weight: bold;
     }
 
     .day-cell.empty {
@@ -247,15 +258,15 @@
 </div>
 
 <script>
-  // 7 位成員及其專屬代表顏色
+  // 7 位成員及其最新更新的代表顏色
   const members = [
     { name: "Emily",  color: "#2D2D2D", textColor: "#FFFFFF" }, // 黑色
-    { name: "felix",  color: "#B39DDB", textColor: "#2D2D2D" }, // 淺紫色
-    { name: "kelly",  color: "#81D4FA", textColor: "#2D2D2D" }, // 淺藍色
-    { name: "helen",  color: "#FF9800", textColor: "#FFFFFF" }, // 橙色
-    { name: "angel",  color: "#4DB6AC", textColor: "#FFFFFF" }, // 湖水綠
+    { name: "felix",  color: "#D1C4E9", textColor: "#2D2D2D" }, // 淺紫色
+    { name: "kelly",  color: "#FFF59D", textColor: "#2D2D2D" }, // 淺黃色
+    { name: "helen",  color: "#81D4FA", textColor: "#2D2D2D" }, // 淺藍色
+    { name: "angel",  color: "#F8BBD0", textColor: "#2D2D2D" }, // 淺粉紅
     { name: "anson",  color: "#6A1B9A", textColor: "#FFFFFF" }, // 深紫色
-    { name: "jaimie", color: "#FFC107", textColor: "#2D2D2D" }  // 橙黃色
+    { name: "jaimie", color: "#FFCA28", textColor: "#2D2D2D" }  // 橙黃色
   ];
 
   let currentDate = new Date(2026, 7, 1); // 預設 2026 年 8 月
@@ -279,7 +290,7 @@
     });
   }
 
-  // 當切換「我是：[人名]」時，更新旁邊的小圓圈顏色
+  // 切換「我是：[人名]」時，更新旁邊的小圓圈顏色
   function updateUserColorDot() {
     const currentUser = document.getElementById('userSelect').value;
     const memberInfo = members.find(m => m.name === currentUser);
@@ -350,6 +361,17 @@
       const monthStr = String(month + 1).padStart(2, '0');
       const dayStr = String(day).padStart(2, '0');
       const dateKey = `${year}-${monthStr}-${dayStr}`;
+
+      // 檢查當天是否有任何人「確定唔得閒」
+      let isAnyBusy = false;
+      if (busyData[dateKey]) {
+        isAnyBusy = Object.values(busyData[dateKey]).some(status => status === 'busy');
+      }
+
+      // 如果有人確定唔得閒，把格仔加上紅色警示樣式
+      if (isAnyBusy) {
+        cell.classList.add('has-busy');
+      }
 
       const dayNum = document.createElement('div');
       dayNum.className = 'day-number';
