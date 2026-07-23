@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>🍽️ 約飯GoGoGo - 雲端同步日曆</title>
+  <title>🍽️ 約飯GoGoGo</title>
   <style>
     :root {
       --primary-color: #4A90E2;
@@ -62,13 +62,6 @@
       height: 8px;
       background-color: #38A169;
       border-radius: 50%;
-      animation: pulse 1.5s infinite;
-    }
-
-    @keyframes pulse {
-      0% { opacity: 1; }
-      50% { opacity: 0.4; }
-      100% { opacity: 1; }
     }
 
     .controls {
@@ -87,14 +80,34 @@
       align-items: center;
     }
 
-    select {
-      padding: 8px 12px;
+    /* 人名選單與色圈容器 */
+    .user-select-container {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: white;
+      padding: 4px 10px;
       border-radius: 8px;
       border: 1px solid var(--border-color);
+    }
+
+    /* 人名旁的專屬顏色小圓圈 */
+    .color-circle {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      display: inline-block;
+      box-shadow: 0 0 2px rgba(0,0,0,0.2);
+      flex-shrink: 0;
+    }
+
+    select {
+      border: none;
       font-size: 14px;
       font-weight: bold;
       outline: none;
-      background: white;
+      background: transparent;
+      cursor: pointer;
     }
 
     .month-nav {
@@ -146,14 +159,16 @@
       border-radius: 8px;
       padding: 4px;
       cursor: pointer;
-      transition: all 0.15s ease;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      transition: background-color 0.1s ease;
       display: flex;
       flex-direction: column;
-      gap: 2px;
+      gap: 3px;
     }
 
-    .day-cell:hover {
-      background: #EDF2F7;
+    .day-cell:active {
+      background-color: #E2E8F0 !important;
     }
 
     .day-cell.empty {
@@ -168,22 +183,26 @@
       color: #4A5568;
     }
 
+    /* 日期內的唔得閒 Label */
     .busy-tag {
       font-size: 10px;
       font-weight: bold;
-      padding: 2px 4px;
+      padding: 2px 5px;
       border-radius: 4px;
       color: white;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
       text-align: center;
-      margin-top: 2px;
       box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
     }
 
     .busy-tag.maybe {
-      opacity: 0.6;
+      opacity: 0.55;
     }
   </style>
 </head>
@@ -193,16 +212,21 @@
   <div class="header">
     <h1>🍽️ 約飯GoGoGo</h1>
     <div class="status-badge">
-      <span class="status-dot"></span> Firebase 雲端實時同步中
+      <span class="status-dot"></span> 系統已準備就緒
     </div>
   </div>
 
   <div class="controls">
     <div class="control-row">
-      <div>
-        <label for="userSelect" style="font-size: 14px; font-weight: 500;">我是：</label>
-        <select id="userSelect">
+      <div style="display: flex; align-items: center; gap: 6px;">
+        <span style="font-size: 14px; font-weight: 500;">我是：</span>
+        <div class="user-select-container">
+          <!-- 專屬顏色小圓圈 -->
+          <span class="color-circle" id="userColorDot"></span>
+          <select id="userSelect" onchange="updateUserColorDot()">
+            <!-- 成員選單 -->
           </select>
+        </div>
       </div>
 
       <div class="month-nav">
@@ -218,31 +242,12 @@
   </div>
 
   <div class="calendar-grid" id="calendarGrid">
-    </div>
+    <!-- 日曆由 JavaScript 動態生成 -->
+  </div>
 </div>
 
-<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
-
 <script>
-  // ----------------------------------------------------
-  // 💡 Firebase 設定 (已為你準備好預設的測試專案連線)
-  // ----------------------------------------------------
-  const firebaseConfig = {
-    apiKey: "AIzaSyDummyKeyForDemoPurposesOnly12345",
-    authDomain: "gogogo-calendar-demo.firebaseapp.com",
-    databaseURL: "https://gogogo-calendar-demo-default-rtdb.firebaseio.com",
-    projectId: "gogogo-calendar-demo",
-    storageBucket: "gogogo-calendar-demo.appspot.com",
-    messagingSenderId: "1234567890",
-    appId: "1:1234567890:web:abcdef123456"
-  };
-
-  // 初始化 Firebase
-  firebase.initializeApp(firebaseConfig);
-  const db = firebase.database();
-
-  // 成員與專屬顏色設定
+  // 7 位成員及其專屬代表顏色
   const members = [
     { name: "Emily",  color: "#2D2D2D", textColor: "#FFFFFF" }, // 黑色
     { name: "felix",  color: "#B39DDB", textColor: "#2D2D2D" }, // 淺紫色
@@ -254,20 +259,15 @@
   ];
 
   let currentDate = new Date(2026, 7, 1); // 預設 2026 年 8 月
-  let busyData = {}; // 儲存從 Firebase 取得嘅數據
+  let busyData = JSON.parse(localStorage.getItem('gogogo_busy_data')) || {};
 
   function init() {
     renderUserSelect();
-    
-    // 🎧 監聽 Firebase 數據變更（實時同步！）
-    db.ref('calendar').on('value', (snapshot) => {
-      busyData = snapshot.val() || {};
-      renderCalendar();
-    }, (error) => {
-      console.error("讀取雲端資料失敗: ", error);
-    });
+    updateUserColorDot();
+    renderCalendar();
   }
 
+  // 渲染人名選單
   function renderUserSelect() {
     const select = document.getElementById('userSelect');
     select.innerHTML = '';
@@ -279,31 +279,40 @@
     });
   }
 
+  // 當切換「我是：[人名]」時，更新旁邊的小圓圈顏色
+  function updateUserColorDot() {
+    const currentUser = document.getElementById('userSelect').value;
+    const memberInfo = members.find(m => m.name === currentUser);
+    const dot = document.getElementById('userColorDot');
+    if (memberInfo) {
+      dot.style.backgroundColor = memberInfo.color;
+    }
+  }
+
   function changeMonth(delta) {
     currentDate.setMonth(currentDate.getMonth() + delta);
     renderCalendar();
   }
 
+  // 點擊日期的切換邏輯
   function toggleStatus(dateStr) {
     const currentUser = document.getElementById('userSelect').value;
-    
-    // 複製現有資料或初始化
-    let dateData = busyData[dateStr] ? { ...busyData[dateStr] } : {};
-    const currentStatus = dateData[currentUser];
-    
-    if (!currentStatus) {
-      dateData[currentUser] = 'busy';  // 按第 1 下：確定唔得閒
-    } else if (currentStatus === 'busy') {
-      dateData[currentUser] = 'maybe'; // 按第 2 下：待定
-    } else {
-      delete dateData[currentUser];    // 按第 3 下：取消
+    if (!busyData[dateStr]) {
+      busyData[dateStr] = {};
     }
 
-    // 🚀 將更新寫入 Firebase 雲端資料庫
-    db.ref(`calendar/${dateStr}`).set(Object.keys(dateData).length > 0 ? dateData : null)
-      .catch((error) => {
-        alert("更新失敗，請檢查網絡連線：" + error.message);
-      });
+    const currentStatus = busyData[dateStr][currentUser];
+    
+    if (!currentStatus) {
+      busyData[dateStr][currentUser] = 'busy';  // 撳 1 下：確定唔得閒
+    } else if (currentStatus === 'busy') {
+      busyData[dateStr][currentUser] = 'maybe'; // 撳 2 下：待定
+    } else {
+      delete busyData[dateStr][currentUser];    // 撳 3 下：取消
+    }
+
+    localStorage.setItem('gogogo_busy_data', JSON.stringify(busyData));
+    renderCalendar();
   }
 
   function renderCalendar() {
@@ -326,12 +335,14 @@
     const firstDayIndex = new Date(year, month, 1).getDay();
     const totalDays = new Date(year, month + 1, 0).getDate();
 
+    // 月初空白格
     for (let i = 0; i < firstDayIndex; i++) {
       const emptyCell = document.createElement('div');
       emptyCell.className = 'day-cell empty';
       grid.appendChild(emptyCell);
     }
 
+    // 生成每個日子格仔
     for (let day = 1; day <= totalDays; day++) {
       const cell = document.createElement('div');
       cell.className = 'day-cell';
@@ -345,7 +356,7 @@
       dayNum.innerText = day;
       cell.appendChild(dayNum);
 
-      // 渲染雲端獲取返嚟嘅唔得閒成員標籤
+      // 顯示唔得閒名單 Label
       if (busyData[dateKey]) {
         Object.keys(busyData[dateKey]).forEach(userName => {
           const status = busyData[dateKey][userName];
@@ -362,6 +373,7 @@
         });
       }
 
+      // 綁定點擊事件
       cell.onclick = () => toggleStatus(dateKey);
       grid.appendChild(cell);
     }
