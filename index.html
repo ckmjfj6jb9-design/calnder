@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🍽️ 約飯GoGoGo - 雲端同步日曆</title>
+  <style>
+    :root {
+      --primary-color: #4A90E2;
+      --bg-color: #F7F9FC;
+      --card-bg: #FFFFFF;
+      --border-color: #E2E8F0;
+    }
+
+    * {
+      box-sizing: border-box;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      margin: 0;
+      padding: 16px;
+      display: flex;
+      justify-content: center;
+    }
+
+    .app-container {
+      width: 100%;
+      max-width: 500px;
+      background: var(--card-bg);
+      border-radius: 16px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+      padding: 20px;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    .header h1 {
+      margin: 0 0 8px 0;
+      font-size: 24px;
+      color: #2D3748;
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      color: #38A169;
+      background-color: #F0FFF4;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-weight: 500;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      background-color: #38A169;
+      border-radius: 50%;
+      animation: pulse 1.5s infinite;
+    }
+
+    @keyframes pulse {
+      0% { opacity: 1; }
+      50% { opacity: 0.4; }
+      100% { opacity: 1; }
+    }
+
+    .controls {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-bottom: 16px;
+      background: #EDF2F7;
+      padding: 12px;
+      border-radius: 12px;
+    }
+
+    .control-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    select {
+      padding: 8px 12px;
+      border-radius: 8px;
+      border: 1px solid var(--border-color);
+      font-size: 14px;
+      font-weight: bold;
+      outline: none;
+      background: white;
+    }
+
+    .month-nav {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-weight: bold;
+      color: #2D3748;
+    }
+
+    .nav-btn {
+      background: white;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      width: 28px;
+      height: 28px;
+      cursor: pointer;
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .instructions {
+      font-size: 12px;
+      color: #718096;
+      text-align: center;
+      margin-bottom: 16px;
+    }
+
+    .calendar-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 6px;
+    }
+
+    .weekday-header {
+      text-align: center;
+      font-size: 12px;
+      font-weight: bold;
+      color: #A0AEC0;
+      padding-bottom: 6px;
+    }
+
+    .day-cell {
+      min-height: 75px;
+      background: #FAFAFA;
+      border: 1px solid #EDF2F7;
+      border-radius: 8px;
+      padding: 4px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .day-cell:hover {
+      background: #EDF2F7;
+    }
+
+    .day-cell.empty {
+      background: transparent;
+      border: none;
+      cursor: default;
+    }
+
+    .day-number {
+      font-size: 12px;
+      font-weight: 600;
+      color: #4A5568;
+    }
+
+    .busy-tag {
+      font-size: 10px;
+      font-weight: bold;
+      padding: 2px 4px;
+      border-radius: 4px;
+      color: white;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      text-align: center;
+      margin-top: 2px;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+    }
+
+    .busy-tag.maybe {
+      opacity: 0.6;
+    }
+  </style>
+</head>
+<body>
+
+<div class="app-container">
+  <div class="header">
+    <h1>🍽️ 約飯GoGoGo</h1>
+    <div class="status-badge">
+      <span class="status-dot"></span> Firebase 雲端實時同步中
+    </div>
+  </div>
+
+  <div class="controls">
+    <div class="control-row">
+      <div>
+        <label for="userSelect" style="font-size: 14px; font-weight: 500;">我是：</label>
+        <select id="userSelect">
+          </select>
+      </div>
+
+      <div class="month-nav">
+        <button class="nav-btn" onclick="changeMonth(-1)">&lt;</button>
+        <span id="monthYearDisplay">2026/8月</span>
+        <button class="nav-btn" onclick="changeMonth(1)">&gt;</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="instructions">
+    💡 點擊日期：<b>標示唔得閒</b> ➔ <b>待定</b> ➔ <b>取消</b>
+  </div>
+
+  <div class="calendar-grid" id="calendarGrid">
+    </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+
+<script>
+  // ----------------------------------------------------
+  // 💡 Firebase 設定 (已為你準備好預設的測試專案連線)
+  // ----------------------------------------------------
+  const firebaseConfig = {
+    apiKey: "AIzaSyDummyKeyForDemoPurposesOnly12345",
+    authDomain: "gogogo-calendar-demo.firebaseapp.com",
+    databaseURL: "https://gogogo-calendar-demo-default-rtdb.firebaseio.com",
+    projectId: "gogogo-calendar-demo",
+    storageBucket: "gogogo-calendar-demo.appspot.com",
+    messagingSenderId: "1234567890",
+    appId: "1:1234567890:web:abcdef123456"
+  };
+
+  // 初始化 Firebase
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.database();
+
+  // 成員與專屬顏色設定
+  const members = [
+    { name: "Emily",  color: "#2D2D2D", textColor: "#FFFFFF" }, // 黑色
+    { name: "felix",  color: "#B39DDB", textColor: "#2D2D2D" }, // 淺紫色
+    { name: "kelly",  color: "#81D4FA", textColor: "#2D2D2D" }, // 淺藍色
+    { name: "helen",  color: "#FF9800", textColor: "#FFFFFF" }, // 橙色
+    { name: "angel",  color: "#4DB6AC", textColor: "#FFFFFF" }, // 湖水綠
+    { name: "anson",  color: "#6A1B9A", textColor: "#FFFFFF" }, // 深紫色
+    { name: "jaimie", color: "#FFC107", textColor: "#2D2D2D" }  // 橙黃色
+  ];
+
+  let currentDate = new Date(2026, 7, 1); // 預設 2026 年 8 月
+  let busyData = {}; // 儲存從 Firebase 取得嘅數據
+
+  function init() {
+    renderUserSelect();
+    
+    // 🎧 監聽 Firebase 數據變更（實時同步！）
+    db.ref('calendar').on('value', (snapshot) => {
+      busyData = snapshot.val() || {};
+      renderCalendar();
+    }, (error) => {
+      console.error("讀取雲端資料失敗: ", error);
+    });
+  }
+
+  function renderUserSelect() {
+    const select = document.getElementById('userSelect');
+    select.innerHTML = '';
+    members.forEach(m => {
+      const opt = document.createElement('option');
+      opt.value = m.name;
+      opt.innerText = m.name;
+      select.appendChild(opt);
+    });
+  }
+
+  function changeMonth(delta) {
+    currentDate.setMonth(currentDate.getMonth() + delta);
+    renderCalendar();
+  }
+
+  function toggleStatus(dateStr) {
+    const currentUser = document.getElementById('userSelect').value;
+    
+    // 複製現有資料或初始化
+    let dateData = busyData[dateStr] ? { ...busyData[dateStr] } : {};
+    const currentStatus = dateData[currentUser];
+    
+    if (!currentStatus) {
+      dateData[currentUser] = 'busy';  // 按第 1 下：確定唔得閒
+    } else if (currentStatus === 'busy') {
+      dateData[currentUser] = 'maybe'; // 按第 2 下：待定
+    } else {
+      delete dateData[currentUser];    // 按第 3 下：取消
+    }
+
+    // 🚀 將更新寫入 Firebase 雲端資料庫
+    db.ref(`calendar/${dateStr}`).set(Object.keys(dateData).length > 0 ? dateData : null)
+      .catch((error) => {
+        alert("更新失敗，請檢查網絡連線：" + error.message);
+      });
+  }
+
+  function renderCalendar() {
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth();
+
+    document.getElementById('monthYearDisplay').innerText = `${year}/${month + 1}月`;
+
+    const grid = document.getElementById('calendarGrid');
+    grid.innerHTML = '';
+
+    const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
+    weekdays.forEach(day => {
+      const header = document.createElement('div');
+      header.className = 'weekday-header';
+      header.innerText = day;
+      grid.appendChild(header);
+    });
+
+    const firstDayIndex = new Date(year, month, 1).getDay();
+    const totalDays = new Date(year, month + 1, 0).getDate();
+
+    for (let i = 0; i < firstDayIndex; i++) {
+      const emptyCell = document.createElement('div');
+      emptyCell.className = 'day-cell empty';
+      grid.appendChild(emptyCell);
+    }
+
+    for (let day = 1; day <= totalDays; day++) {
+      const cell = document.createElement('div');
+      cell.className = 'day-cell';
+      
+      const monthStr = String(month + 1).padStart(2, '0');
+      const dayStr = String(day).padStart(2, '0');
+      const dateKey = `${year}-${monthStr}-${dayStr}`;
+
+      const dayNum = document.createElement('div');
+      dayNum.className = 'day-number';
+      dayNum.innerText = day;
+      cell.appendChild(dayNum);
+
+      // 渲染雲端獲取返嚟嘅唔得閒成員標籤
+      if (busyData[dateKey]) {
+        Object.keys(busyData[dateKey]).forEach(userName => {
+          const status = busyData[dateKey][userName];
+          const memberInfo = members.find(m => m.name === userName);
+
+          if (memberInfo) {
+            const tag = document.createElement('div');
+            tag.className = `busy-tag ${status === 'maybe' ? 'maybe' : ''}`;
+            tag.style.backgroundColor = memberInfo.color;
+            tag.style.color = memberInfo.textColor;
+            tag.innerText = status === 'maybe' ? `(${userName}?)` : `(${userName})`;
+            cell.appendChild(tag);
+          }
+        });
+      }
+
+      cell.onclick = () => toggleStatus(dateKey);
+      grid.appendChild(cell);
+    }
+  }
+
+  init();
+</script>
+
+</body>
+</html>
